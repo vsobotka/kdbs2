@@ -22,5 +22,6 @@ export const actions: Actions = {
     });
     throw redirect(303, '/commodities');
   },
+
 };
 
