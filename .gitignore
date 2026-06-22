@@ -1,0 +1,10 @@
+node_modules
+.env
+dist
+.svelte-kit
+build
+*.log
+.DS_Store
+notes.txt
+.idea
+*.md
