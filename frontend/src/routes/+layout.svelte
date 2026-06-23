@@ -5,10 +5,10 @@
 </script>
 
 <header class="topbar">
-  <a href="/" class="brand">Komoditní burza</a>
+  <a href="/" class="brand">Commodity exchange</a>
   <nav>
     {#if data.user}
-      <span class="money">{data.user.balance} K��</span>
+      <span class="money">{data.user.balance} CZK</span>
       <a href="/profile">{data.user.username}</a>
       <form method="POST" action="/logout" use:enhance>
         <button>Log out</button>

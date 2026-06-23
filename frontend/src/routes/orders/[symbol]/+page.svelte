@@ -23,25 +23,6 @@
 
 <h2>Orders</h2>
 <div style="width:350px;text-align:center">
-  <table style="float:right; text-align: left;">
-    <thead>
-      <tr>
-        <th>Price</th>
-        <th>Quantity</th>
-        <th>Side</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each sellOrders as order}
-        <tr style="color: red">
-          <td>{order.price}</td>
-          <td>{order.quantity}</td>
-          <td>{order.side}</td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-
   <table style="float:left; text-align: right;">
     <thead>
       <tr>
@@ -56,6 +37,25 @@
           <td>{order.side}</td>
           <td>{order.quantity}</td>
           <td>{order.price}</td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+
+  <table style="float:right; text-align: left;">
+    <thead>
+      <tr>
+        <th>Price</th>
+        <th>Quantity</th>
+        <th>Side</th>
+      </tr>
+    </thead>
+    <tbody>
+      {#each sellOrders as order}
+        <tr style="color: red">
+          <td>{order.price}</td>
+          <td>{order.quantity}</td>
+          <td>{order.side}</td>
         </tr>
       {/each}
     </tbody>

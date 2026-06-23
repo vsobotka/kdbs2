@@ -17,10 +17,10 @@
 </script>
 
 <main style="font-family: system-ui; padding: 2rem; max-width: 640px;">
-  <h1>Komoditní burza</h1>
-  <ul>
-    {#each data.commodities as c}
-      <li><strong>{c.symbol}</strong> - {c.name} ({c.unit})</li>
-    {/each}
-  </ul>
+  <h1>Commodity exchange</h1>
+  {#each data.commodities as c}
+    <p>
+      <a href="/orders/{c.symbol}">{c.name}</a>
+    </p>
+  {/each}
 </main>
