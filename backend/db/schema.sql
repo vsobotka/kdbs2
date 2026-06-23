@@ -5,6 +5,24 @@ DROP TABLE IF EXISTS commodity CASCADE;
 DROP TABLE IF EXISTS session CASCADE;
 DROP TABLE IF EXISTS app_user CASCADE;
 DROP TABLE IF EXISTS transaction_table CASCADE;
+DROP TABLE IF EXISTS order_side CASCADE;
+DROP TABLE IF EXISTS transaction_type CASCADE;
+
+-- Číselníky (lookup tables): fixed reference data, referenced by foreign keys.
+CREATE TABLE order_side (
+  code  TEXT PRIMARY KEY,        -- 'buy', 'sell'
+  label TEXT NOT NULL            -- display text
+);
+INSERT INTO order_side (code, label) VALUES
+  ('buy', 'Buy'), ('sell', 'Sell');
+
+CREATE TABLE transaction_type (
+  code  TEXT PRIMARY KEY,        -- 'deposit', 'withdraw', 'buy', 'sell'
+  label TEXT NOT NULL
+);
+INSERT INTO transaction_type (code, label) VALUES
+  ('deposit', 'Deposit'), ('withdraw', 'Withdrawal'),
+  ('buy', 'Buy'), ('sell', 'Sell');
 
 CREATE TABLE commodity (
   id      SERIAL PRIMARY KEY,
@@ -24,7 +42,7 @@ CREATE TABLE trade_order (
   id            SERIAL PRIMARY KEY,
   commodity_id  INTEGER NOT NULL REFERENCES commodity(id),
   user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-  side          TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+  side          TEXT NOT NULL REFERENCES order_side(code),
   quantity      NUMERIC NOT NULL CHECK (quantity > 0),
   price         NUMERIC NOT NULL CHECK (price > 0),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -41,7 +59,7 @@ CREATE TABLE transaction_table (
   id            SERIAL PRIMARY KEY,
   user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   change        NUMERIC NOT NULL,
-  type          TEXT NOT NULL CHECK (type IN ('withdraw', 'deposit', 'buy', 'sell')),
+  type          TEXT NOT NULL REFERENCES transaction_type(code),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   commodity_id  INTEGER NULL REFERENCES commodity(id),
   quantity      NUMERIC NULL,
