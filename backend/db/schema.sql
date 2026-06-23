@@ -4,6 +4,7 @@ DROP TABLE IF EXISTS trade_order CASCADE;
 DROP TABLE IF EXISTS commodity CASCADE;
 DROP TABLE IF EXISTS session CASCADE;
 DROP TABLE IF EXISTS app_user CASCADE;
+DROP TABLE IF EXISTS transaction_table CASCADE;
 
 CREATE TABLE commodity (
   id      SERIAL PRIMARY KEY,
@@ -35,4 +36,15 @@ CREATE TABLE session (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at  TIMESTAMPTZ NOT NULL DEFAULT now() + interval '7 days'
 );
+
+CREATE TABLE transaction_table (
+  id            SERIAL PRIMARY KEY,
+  user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  change        NUMERIC NOT NULL,
+  type          TEXT NOT NULL CHECK (type IN ('withdraw', 'deposit', 'buy', 'sell')),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  commodity_id  INTEGER NULL REFERENCES commodity(id),
+  quantity      NUMERIC NULL,
+  price         NUMERIC NULL
+)
 

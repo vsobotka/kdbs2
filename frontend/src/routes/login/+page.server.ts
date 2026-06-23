@@ -20,7 +20,7 @@ export const actions: Actions = {
       secure: false,             // true in production (HTTPS only)
       expires: new Date(expiresAt),
     });
-    throw redirect(303, '/commodities');
+    throw redirect(303, '/');
   },
 };
 

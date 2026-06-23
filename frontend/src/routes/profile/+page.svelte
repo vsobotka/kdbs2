@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { enhance } from "$app/forms";
   let { data } = $props();
 </script>
 
@@ -9,3 +10,33 @@
 {:else}
   <p><a href="/login">Log in</a> to see your profile.</p>
 {/if}
+
+<form method="POST" action="?/deposit" use:enhance>
+  <input name="amount" min="0" type="number" step="any" placeholder="amount" />
+  <button>Deposit</button>
+</form>
+
+<form method="POST" action="?/withdraw" use:enhance>
+  <input name="amount" min="0" type="number" step="any" placeholder="amount" />
+  <button>Withdraw</button>
+</form>
+
+<h2>Transactions</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Timestamp</th>
+      <th>Type</th>
+      <th>Change</th>
+    </tr>
+  </thead>
+  <tbody>
+    {#each data.transactions as transaction}
+      <tr>
+        <td>{transaction.created_at}</td>
+        <td>{transaction.type}</td>
+        <td>{transaction.change}</td>
+      </tr>
+    {/each}
+  </tbody>
+</table>

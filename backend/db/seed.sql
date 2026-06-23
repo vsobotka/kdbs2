@@ -31,3 +31,11 @@ INSERT INTO trade_order (commodity_id, user_id, side, quantity, price) VALUES
   (3, 1, 'sell', 10, 15),
   (3, 1, 'sell', 10, 16);
 
+INSERT INTO transaction_table (user_id, change, type, commodity_id, quantity, price) VALUES
+  (1, 135000, 'deposit', null, null, null),
+  (1, -25000, 'withdraw', null, null, null),
+  (2, 50000, 'deposit', null, null, null),
+  (1, -1200, 'buy', 1, 100, 12),
+  (1, 300, 'sell', 1, 20, 15),
+  (1, -9100, 'buy', 1, 910, 10);
+

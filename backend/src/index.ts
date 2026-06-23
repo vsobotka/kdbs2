@@ -114,7 +114,63 @@ app.get('/api/orders/:symbol', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
-})
+});
+
+app.get('/api/transactions', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'not logged in' });
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT t.created_at, t.type, t.change
+           FROM session s
+          JOIN transaction_table t ON t.user_id = s.user_id
+          WHERE s.id = $1 AND s.expires_at > now()
+          ORDER BY t.created_at DESC`,
+      [token]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message })
+  }
+});
+
+app.post('/api/deposit', async (req, res) => {
+  const { amount } = req.body;
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'not logged in' });
+
+  if (amount <= 0) return res.status(400).json({ error: 'Deposit must be > 0' })
+
+  try {
+    const user = await pool.query(`
+      SELECT user_id FROM session WHERE id = $1 AND expires_at > now() LIMIT 1`, [token])
+    const userId = user.rows[0].user_id;
+    if (!userId) return res.status(401).json({ error: 'not logged in' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO transaction_table (user_id, change, type) VALUES ($1, $2, 'deposit')`,
+        [userId, amount]
+      );
+      const { rows } = await client.query(
+        `UPDATE app_user SET balance = balance + $1 WHERE id = $2 RETURNING balance`,
+        [amount, userId]
+      );
+      await client.query('COMMIT');
+      res.status(201).json({ balance: rows[0].balance });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
 
 app.listen(config.port, () => {
   console.log(`backend listening on http://localhost:${config.port}`);
