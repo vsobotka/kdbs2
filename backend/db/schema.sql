@@ -12,20 +12,21 @@ CREATE TABLE commodity (
   unit    TEXT NOT NULL
 );
 
-CREATE TABLE trade_order (
-  id            SERIAL PRIMARY KEY,
-  commodity_id  INTEGER NOT NULL REFERENCES commodity(id),
-  side          TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
-  quantity      NUMERIC NOT NULL CHECK (quantity > 0),
-  price         NUMERIC NOT NULL CHECK (price > 0),
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 CREATE TABLE app_user (
   id            SERIAL PRIMARY KEY,
   username      TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   balance       NUMERIC NOT NULL DEFAULT 0 CHECK (balance >= 0)
+);
+
+CREATE TABLE trade_order (
+  id            SERIAL PRIMARY KEY,
+  commodity_id  INTEGER NOT NULL REFERENCES commodity(id),
+  user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  side          TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+  quantity      NUMERIC NOT NULL CHECK (quantity > 0),
+  price         NUMERIC NOT NULL CHECK (price > 0),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE session (
