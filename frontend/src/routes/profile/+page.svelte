@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  let { data } = $props();
+  let { data, form } = $props();
 </script>
 
 <h1>Profile</h1>
@@ -10,6 +10,8 @@
 {:else}
   <p><a href="/login">Log in</a> to see your profile.</p>
 {/if}
+
+{#if form?.error}<p style="color:red">{form.error}</p>{/if}
 
 <form method="POST" action="?/deposit" use:enhance>
   <input name="amount" min="0" type="number" step="any" placeholder="amount" />
