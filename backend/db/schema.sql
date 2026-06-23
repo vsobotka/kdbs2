@@ -1,5 +1,12 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'burza_app') THEN
+    CREATE ROLE burza_app LOGIN PASSWORD 'burza_app_pw';
+  END IF;
+END $$;
+
 DROP TABLE IF EXISTS trade_order CASCADE;
 DROP TABLE IF EXISTS commodity CASCADE;
 DROP TABLE IF EXISTS session CASCADE;
@@ -8,16 +15,15 @@ DROP TABLE IF EXISTS transaction_table CASCADE;
 DROP TABLE IF EXISTS order_side CASCADE;
 DROP TABLE IF EXISTS transaction_type CASCADE;
 
--- Číselníky (lookup tables): fixed reference data, referenced by foreign keys.
 CREATE TABLE order_side (
-  code  TEXT PRIMARY KEY,        -- 'buy', 'sell'
-  label TEXT NOT NULL            -- display text
+  code  TEXT PRIMARY KEY,
+  label TEXT NOT NULL
 );
 INSERT INTO order_side (code, label) VALUES
   ('buy', 'Buy'), ('sell', 'Sell');
 
 CREATE TABLE transaction_type (
-  code  TEXT PRIMARY KEY,        -- 'deposit', 'withdraw', 'buy', 'sell'
+  code  TEXT PRIMARY KEY,
   label TEXT NOT NULL
 );
 INSERT INTO transaction_type (code, label) VALUES
@@ -66,11 +72,15 @@ CREATE TABLE transaction_table (
   price         NUMERIC NULL
 );
 
--- Pohled (view): the order book — every order joined to its commodity and owner.
 CREATE VIEW vw_order_book AS
 SELECT o.id, c.symbol, c.name AS commodity, u.username,
        o.side, o.quantity, o.price, o.created_at
 FROM trade_order o
 JOIN commodity c ON c.id = o.commodity_id
 JOIN app_user  u ON u.id = o.user_id;
+
+GRANT CONNECT ON DATABASE kdbs2 TO burza_app;
+GRANT USAGE ON SCHEMA public TO burza_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO burza_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO burza_app;
 
