@@ -64,5 +64,13 @@ CREATE TABLE transaction_table (
   commodity_id  INTEGER NULL REFERENCES commodity(id),
   quantity      NUMERIC NULL,
   price         NUMERIC NULL
-)
+);
+
+-- Pohled (view): the order book — every order joined to its commodity and owner.
+CREATE VIEW vw_order_book AS
+SELECT o.id, c.symbol, c.name AS commodity, u.username,
+       o.side, o.quantity, o.price, o.created_at
+FROM trade_order o
+JOIN commodity c ON c.id = o.commodity_id
+JOIN app_user  u ON u.id = o.user_id;
 

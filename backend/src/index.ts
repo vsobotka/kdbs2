@@ -103,12 +103,11 @@ app.get('/api/commodities/:symbol', async (req, res) => {
 app.get('/api/orders/:symbol', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT o.id, o.side, o.quantity, o.price, o.created_at
-        FROM trade_order o
-        JOIN commodity c ON o.commodity_id = c.id
-        WHERE c.symbol = $1
-        ORDER BY o.price asc
-      `, [req.params.symbol]);
+      `SELECT id, side, quantity, price, created_at, username
+         FROM vw_order_book
+        WHERE symbol = $1
+        ORDER BY price ASC`,
+      [req.params.symbol]);
     if (rows.length === 0) return res.status(404).json({ error: 'no orders' });
     res.json(rows);
   } catch (err) {
