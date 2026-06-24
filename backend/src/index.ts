@@ -31,12 +31,9 @@ app.get('/api/commodities', async (_req, res) => {
 app.post('/api/orders', async (req, res) => {
   const { commodityId, userId, side, quantity, price } = req.body;
   try {
-    const { rows } = await pool.query(
-      `INSERT INTO trade_order (commodity_id, user_id, side, quantity, price)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [commodityId, userId, side, quantity, price]
-    );
-    res.status(201).json(rows[0]);
+    await pool.query('CALL sp_place_order($1, $2, $3, $4, $5)',
+      [userId, commodityId, side, quantity, price]);
+    res.status(201).json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
   }

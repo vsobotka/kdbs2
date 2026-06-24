@@ -8,6 +8,7 @@ BEGIN
 END $$;
 
 DROP TABLE IF EXISTS trade_order CASCADE;
+DROP TABLE IF EXISTS holding CASCADE;
 DROP TABLE IF EXISTS commodity CASCADE;
 DROP TABLE IF EXISTS session CASCADE;
 DROP TABLE IF EXISTS app_user CASCADE;
@@ -53,6 +54,13 @@ CREATE TABLE app_user (
   role          TEXT NOT NULL DEFAULT 'user' REFERENCES user_role(code)
 );
 
+CREATE TABLE holding (
+  user_id      INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  commodity_id INTEGER NOT NULL REFERENCES commodity(id),
+  quantity     NUMERIC NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  PRIMARY KEY (user_id, commodity_id)
+);
+
 CREATE TABLE trade_order (
   id            SERIAL PRIMARY KEY,
   commodity_id  INTEGER NOT NULL REFERENCES commodity(id),
@@ -87,6 +95,115 @@ SELECT o.id, c.symbol, c.name AS commodity, u.username,
 FROM trade_order o
 JOIN commodity c ON c.id = o.commodity_id
 JOIN app_user  u ON u.id = o.user_id;
+
+-- how much of a commodity a user currently owns (0 if none)
+CREATE OR REPLACE FUNCTION fn_holding(p_user INTEGER, p_commodity INTEGER)
+RETURNS NUMERIC LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(
+    (SELECT quantity FROM holding WHERE user_id = p_user AND commodity_id = p_commodity),
+    0);
+$$;
+
+-- reject an order the user can't back — no naked sells, no unaffordable buys
+CREATE OR REPLACE FUNCTION trg_validate_order() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.side = 'sell' THEN
+    IF fn_holding(NEW.user_id, NEW.commodity_id) < NEW.quantity THEN
+      RAISE EXCEPTION 'Not enough holdings to sell';
+    END IF;
+  ELSIF NEW.side = 'buy' THEN
+    IF (SELECT balance FROM app_user WHERE id = NEW.user_id) < NEW.quantity * NEW.price THEN
+      RAISE EXCEPTION 'Insufficient balance';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_validate_order
+  BEFORE INSERT ON trade_order
+  FOR EACH ROW EXECUTE FUNCTION trg_validate_order();
+
+-- place an order, match it against the opposite side of the book, and
+-- settle each fill (money + goods + ledger). Any unfilled remainder rests
+CREATE OR REPLACE PROCEDURE sp_place_order(
+  p_user INTEGER, p_commodity INTEGER, p_side TEXT, p_quantity NUMERIC, p_price NUMERIC
+) LANGUAGE plpgsql AS $$
+DECLARE
+  v_remaining NUMERIC := p_quantity;
+  v_fill NUMERIC;
+  v_cost NUMERIC;
+  r RECORD;
+BEGIN
+  IF p_side = 'buy' THEN
+    FOR r IN
+      SELECT * FROM trade_order
+       WHERE commodity_id = p_commodity AND side = 'sell'
+         AND price <= p_price AND user_id <> p_user
+       ORDER BY price ASC, created_at ASC
+    LOOP
+      EXIT WHEN v_remaining <= 0;
+      v_fill := LEAST(v_remaining, r.quantity);
+      v_cost := v_fill * r.price;
+      UPDATE app_user SET balance = balance - v_cost WHERE id = p_user;
+      UPDATE app_user SET balance = balance + v_cost WHERE id = r.user_id;
+      UPDATE holding SET quantity = quantity - v_fill
+        WHERE user_id = r.user_id AND commodity_id = p_commodity;
+      INSERT INTO holding (user_id, commodity_id, quantity)
+        VALUES (p_user, p_commodity, v_fill)
+        ON CONFLICT (user_id, commodity_id)
+        DO UPDATE SET quantity = holding.quantity + EXCLUDED.quantity;
+      INSERT INTO transaction_table (user_id, change, type, commodity_id, quantity, price)
+        VALUES (p_user, -v_cost, 'buy',  p_commodity, v_fill, r.price),
+               (r.user_id, v_cost, 'sell', p_commodity, v_fill, r.price);
+      IF r.quantity > v_fill THEN
+        UPDATE trade_order SET quantity = quantity - v_fill WHERE id = r.id;
+      ELSE
+        DELETE FROM trade_order WHERE id = r.id;
+      END IF;
+      v_remaining := v_remaining - v_fill;
+    END LOOP;
+    IF v_remaining > 0 THEN
+      INSERT INTO trade_order (commodity_id, user_id, side, quantity, price)
+        VALUES (p_commodity, p_user, 'buy', v_remaining, p_price);
+    END IF;
+
+  ELSIF p_side = 'sell' THEN
+    FOR r IN
+      SELECT * FROM trade_order
+       WHERE commodity_id = p_commodity AND side = 'buy'
+         AND price >= p_price AND user_id <> p_user
+       ORDER BY price DESC, created_at ASC
+    LOOP
+      EXIT WHEN v_remaining <= 0;
+      v_fill := LEAST(v_remaining, r.quantity);
+      v_cost := v_fill * r.price;
+      UPDATE app_user SET balance = balance - v_cost WHERE id = r.user_id;
+      UPDATE app_user SET balance = balance + v_cost WHERE id = p_user;
+      UPDATE holding SET quantity = quantity - v_fill
+        WHERE user_id = p_user AND commodity_id = p_commodity;
+      INSERT INTO holding (user_id, commodity_id, quantity)
+        VALUES (r.user_id, p_commodity, v_fill)
+        ON CONFLICT (user_id, commodity_id)
+        DO UPDATE SET quantity = holding.quantity + EXCLUDED.quantity;
+      INSERT INTO transaction_table (user_id, change, type, commodity_id, quantity, price)
+        VALUES (p_user, v_cost, 'sell', p_commodity, v_fill, r.price),
+               (r.user_id, -v_cost, 'buy', p_commodity, v_fill, r.price);
+      IF r.quantity > v_fill THEN
+        UPDATE trade_order SET quantity = quantity - v_fill WHERE id = r.id;
+      ELSE
+        DELETE FROM trade_order WHERE id = r.id;
+      END IF;
+      v_remaining := v_remaining - v_fill;
+    END LOOP;
+    IF v_remaining > 0 THEN
+      INSERT INTO trade_order (commodity_id, user_id, side, quantity, price)
+        VALUES (p_commodity, p_user, 'sell', v_remaining, p_price);
+    END IF;
+  END IF;
+END;
+$$;
 
 GRANT CONNECT ON DATABASE kdbs2 TO burza_app;
 GRANT USAGE ON SCHEMA public TO burza_app;
