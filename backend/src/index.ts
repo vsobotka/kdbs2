@@ -8,15 +8,6 @@ const app = express();
 app.use(cors({ origin: config.corsOrigin }));
 app.use(express.json());
 
-app.get('/api/health', async (_req, res) => {
-  try {
-    const { rows } = await pool.query<{ now: Date }>('SELECT NOW() as now');
-    res.json({ ok: true, db: rows[0]?.now });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: (err as Error).message });
-  }
-});
-
 app.get('/api/commodities', async (_req, res) => {
   try {
     const { rows } = await pool.query(
