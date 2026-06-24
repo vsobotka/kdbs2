@@ -11,7 +11,8 @@
     "db:schema": "tsx scripts/db.ts db/schema.sql",
     "db:seed": "tsx scripts/db.ts db/seed.sql",
     "db:reset": "npm run db:schema && npm run db:seed",
-    "db:backup": "docker compose -f ../docker-compose.yml exec -T postgres pg_dump -U postgres --clean --if-exists kdbs2 > db/backup.sql"
+    "db:backup": "docker compose -f ../docker-compose.yml exec -T postgres pg_dump -U postgres --clean --if-exists kdbs2 > db/backup.sql",
+    "db:restore": "docker compose -f ../docker-compose.yml exec -T postgres psql -U postgres -d kdbs2 < db/backup.sql"
   },
   "dependencies": {
     "cors": "^2.8.5",
