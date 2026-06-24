@@ -38,7 +38,6 @@ app.post('/api/orders', async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    // CHECK / foreign-key violations land here (pg error codes start '23')
     res.status(400).json({ error: (err as Error).message });
   }
 });
@@ -49,11 +48,11 @@ app.post('/api/login', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id FROM app_user
         WHERE username = $1
-          AND password_hash = crypt($2, password_hash)`,   // ← verify in SQL
+          AND password_hash = crypt($2, password_hash)`,
       [username, password]
     );
     if (rows.length === 0)
-      return res.status(401).json({ error: 'Invalid credentials' });   // generic on purpose
+      return res.status(401).json({ error: 'Invalid credentials' });
 
     const { rows: s } = await pool.query(
       `INSERT INTO session (user_id) VALUES ($1) RETURNING id, expires_at`,
@@ -70,10 +69,10 @@ app.get('/api/me', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'no session' });
   try {
     const { rows } = await pool.query(
-      `SELECT u.id, u.username, u.balance
+      `SELECT u.id, u.username, u.balance, u.role
          FROM session s
          JOIN app_user u ON u.id = s.user_id
-        WHERE s.id = $1 AND s.expires_at > now()`,        // ← join + expiry check
+        WHERE s.id = $1 AND s.expires_at > now()`,
       [token]
     );
     if (rows.length === 0) return res.status(401).json({ error: 'invalid session' });
@@ -108,8 +107,7 @@ app.get('/api/orders/:symbol', async (req, res) => {
         WHERE symbol = $1
         ORDER BY price ASC`,
       [req.params.symbol]);
-    if (rows.length === 0) return res.status(404).json({ error: 'no orders' });
-    res.json(rows);
+    res.json(rows);   // an empty order book is valid
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -142,10 +140,13 @@ app.post('/api/deposit', async (req, res) => {
   if (amount <= 0) return res.status(400).json({ error: 'Deposit must be > 0' })
 
   try {
-    const user = await pool.query(`
-      SELECT user_id FROM session WHERE id = $1 AND expires_at > now() LIMIT 1`, [token])
+    const user = await pool.query(
+      `SELECT s.user_id, u.role FROM session s
+         JOIN app_user u ON u.id = s.user_id
+        WHERE s.id = $1 AND s.expires_at > now() LIMIT 1`, [token])
+    if (user.rows.length === 0) return res.status(401).json({ error: 'not logged in' });
+    if (user.rows[0].role === 'admin') return res.status(403).json({ error: 'Admins cannot deposit' });
     const userId = user.rows[0].user_id;
-    if (!userId) return res.status(401).json({ error: 'not logged in' });
 
     const client = await pool.connect();
     try {
@@ -179,10 +180,13 @@ app.post('/api/withdraw', async (req, res) => {
   if (amount <= 0) return res.status(400).json({ error: 'Withdraw must be > 0' })
 
   try {
-    const user = await pool.query(`
-      SELECT user_id FROM session WHERE id = $1 AND expires_at > now() LIMIT 1`, [token])
+    const user = await pool.query(
+      `SELECT s.user_id, u.role FROM session s
+         JOIN app_user u ON u.id = s.user_id
+        WHERE s.id = $1 AND s.expires_at > now() LIMIT 1`, [token])
+    if (user.rows.length === 0) return res.status(401).json({ error: 'not logged in' });
+    if (user.rows[0].role === 'admin') return res.status(403).json({ error: 'Admins cannot withdraw' });
     const userId = user.rows[0].user_id;
-    if (!userId) return res.status(401).json({ error: 'not logged in' });
 
     const client = await pool.connect();
     try {
@@ -203,6 +207,30 @@ app.post('/api/withdraw', async (req, res) => {
     } finally {
       client.release();
     }
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+// Admin only: create a new commodity
+app.post('/api/commodities', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'not logged in' });
+  const { symbol, name, unit } = req.body;
+  try {
+    const { rows: who } = await pool.query(
+      `SELECT u.role FROM session s JOIN app_user u ON u.id = s.user_id
+        WHERE s.id = $1 AND s.expires_at > now()`,
+      [token]
+    );
+    if (who.length === 0) return res.status(401).json({ error: 'not logged in' });
+    if (who[0].role !== 'admin') return res.status(403).json({ error: 'admin only' });
+
+    const { rows } = await pool.query(
+      `INSERT INTO commodity (symbol, name, unit) VALUES ($1, $2, $3) RETURNING *`,
+      [symbol, name, unit]
+    );
+    res.status(201).json(rows[0]);
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
   }

@@ -1,6 +1,7 @@
-INSERT INTO app_user (username, password_hash, balance) VALUES
-  ('alice', crypt('alicepw', gen_salt('bf')), 100000),
-  ('bob',   crypt('bobpw',   gen_salt('bf')), 50000)
+INSERT INTO app_user (username, password_hash, balance, role) VALUES
+  ('alice', crypt('alicepw', gen_salt('bf')), 100000, 'user'),
+  ('bob',   crypt('bobpw',   gen_salt('bf')),  50000, 'user'),
+  ('admin', crypt('adminpw', gen_salt('bf')),      0, 'admin')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO commodity (symbol, name, unit) VALUES

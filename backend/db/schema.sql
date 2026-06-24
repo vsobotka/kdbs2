@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS app_user CASCADE;
 DROP TABLE IF EXISTS transaction_table CASCADE;
 DROP TABLE IF EXISTS order_side CASCADE;
 DROP TABLE IF EXISTS transaction_type CASCADE;
+DROP TABLE IF EXISTS user_role CASCADE;
 
 CREATE TABLE order_side (
   code  TEXT PRIMARY KEY,
@@ -30,6 +31,13 @@ INSERT INTO transaction_type (code, label) VALUES
   ('deposit', 'Deposit'), ('withdraw', 'Withdrawal'),
   ('buy', 'Buy'), ('sell', 'Sell');
 
+CREATE TABLE user_role (
+  code  TEXT PRIMARY KEY,
+  label TEXT NOT NULL
+);
+INSERT INTO user_role (code, label) VALUES
+  ('user', 'User'), ('admin', 'Administrator');
+
 CREATE TABLE commodity (
   id      SERIAL PRIMARY KEY,
   symbol  TEXT NOT NULL UNIQUE,
@@ -41,7 +49,8 @@ CREATE TABLE app_user (
   id            SERIAL PRIMARY KEY,
   username      TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  balance       NUMERIC NOT NULL DEFAULT 0 CHECK (balance >= 0)
+  balance       NUMERIC NOT NULL DEFAULT 0 CHECK (balance >= 0),
+  role          TEXT NOT NULL DEFAULT 'user' REFERENCES user_role(code)
 );
 
 CREATE TABLE trade_order (

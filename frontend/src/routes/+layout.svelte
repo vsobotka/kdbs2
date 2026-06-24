@@ -9,6 +9,7 @@
   <nav>
     {#if data.user}
       <span class="money">{data.user.balance} CZK</span>
+      {#if data.user.role === 'admin'}<a href="/admin">Admin</a>{/if}
       <a href="/profile">{data.user.username}</a>
       <form method="POST" action="/logout" use:enhance>
         <button>Log out</button>

@@ -35,6 +35,7 @@ export const actions: Actions = {
   create: async ({ params, request, fetch, cookies }) => {
     const user = await getUser(cookies, fetch);
     if (!user) throw redirect(303, '/login');          // the real gate: block the POST itself
+    if (user.role === 'admin') return fail(403, { error: 'Admins cannot trade' });
     const commodity = await getCommodity(fetch, params.symbol);   // id from URL, not the form
     const f = await request.formData();
     const order = {
