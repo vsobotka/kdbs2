@@ -50,14 +50,14 @@ CREATE TABLE app_user (
   id            SERIAL PRIMARY KEY,
   username      TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  balance       NUMERIC NOT NULL DEFAULT 0 CHECK (balance >= 0),
+  balance       NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
   role          TEXT NOT NULL DEFAULT 'user' REFERENCES user_role(code)
 );
 
 CREATE TABLE holding (
   user_id      INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   commodity_id INTEGER NOT NULL REFERENCES commodity(id),
-  quantity     NUMERIC NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  quantity     NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (quantity >= 0),
   PRIMARY KEY (user_id, commodity_id)
 );
 
@@ -66,8 +66,8 @@ CREATE TABLE trade_order (
   commodity_id  INTEGER NOT NULL REFERENCES commodity(id),
   user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   side          TEXT NOT NULL REFERENCES order_side(code),
-  quantity      NUMERIC NOT NULL CHECK (quantity > 0),
-  price         NUMERIC NOT NULL CHECK (price > 0),
+  quantity      NUMERIC(14,2) NOT NULL CHECK (quantity > 0),
+  price         NUMERIC(14,2) NOT NULL CHECK (price > 0),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -81,12 +81,12 @@ CREATE TABLE session (
 CREATE TABLE transaction_table (
   id            SERIAL PRIMARY KEY,
   user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-  change        NUMERIC NOT NULL,
+  change        NUMERIC(14,2) NOT NULL,
   type          TEXT NOT NULL REFERENCES transaction_type(code),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   commodity_id  INTEGER NULL REFERENCES commodity(id),
-  quantity      NUMERIC NULL,
-  price         NUMERIC NULL
+  quantity      NUMERIC(14,2) NULL,
+  price         NUMERIC(14,2) NULL
 );
 
 CREATE VIEW vw_order_book AS
@@ -95,6 +95,13 @@ SELECT o.id, c.symbol, c.name AS commodity, u.username,
 FROM trade_order o
 JOIN commodity c ON c.id = o.commodity_id
 JOIN app_user  u ON u.id = o.user_id;
+
+-- Indexes on foreign-key / lookup columns (Postgres does not auto-index FKs).
+CREATE INDEX idx_trade_order_book ON trade_order (commodity_id, price);  -- order-book query
+CREATE INDEX idx_trade_order_user ON trade_order (user_id);
+CREATE INDEX idx_transaction_user ON transaction_table (user_id);
+CREATE INDEX idx_session_user     ON session (user_id);
+CREATE INDEX idx_holding_commodity ON holding (commodity_id);
 
 -- how much of a commodity a user currently owns (0 if none)
 CREATE OR REPLACE FUNCTION fn_holding(p_user INTEGER, p_commodity INTEGER)

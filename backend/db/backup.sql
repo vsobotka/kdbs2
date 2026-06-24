@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict u9aeI7LJdLM2VPO5e9seEU8Hcfgker0sfSO06a9RxAQQVUfIigbeanBQKtyIfYN
+\restrict 338CtpZOtJgLnMJPk4U0LP6cJy0P457X9iEuFwdOHfYkP5yG2i65VI0hf8gbJfg
 
 -- Dumped from database version 16.14 (Debian 16.14-1.pgdg13+1)
 -- Dumped by pg_dump version 16.14 (Debian 16.14-1.pgdg13+1)
@@ -29,6 +29,11 @@ ALTER TABLE IF EXISTS ONLY public.holding DROP CONSTRAINT IF EXISTS holding_user
 ALTER TABLE IF EXISTS ONLY public.holding DROP CONSTRAINT IF EXISTS holding_commodity_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.app_user DROP CONSTRAINT IF EXISTS app_user_role_fkey;
 DROP TRIGGER IF EXISTS trg_validate_order ON public.trade_order;
+DROP INDEX IF EXISTS public.idx_transaction_user;
+DROP INDEX IF EXISTS public.idx_trade_order_user;
+DROP INDEX IF EXISTS public.idx_trade_order_book;
+DROP INDEX IF EXISTS public.idx_session_user;
+DROP INDEX IF EXISTS public.idx_holding_commodity;
 ALTER TABLE IF EXISTS ONLY public.user_role DROP CONSTRAINT IF EXISTS user_role_pkey;
 ALTER TABLE IF EXISTS ONLY public.transaction_type DROP CONSTRAINT IF EXISTS transaction_type_pkey;
 ALTER TABLE IF EXISTS ONLY public.transaction_table DROP CONSTRAINT IF EXISTS transaction_table_pkey;
@@ -212,7 +217,7 @@ CREATE TABLE public.app_user (
     id integer NOT NULL,
     username text NOT NULL,
     password_hash text NOT NULL,
-    balance numeric DEFAULT 0 NOT NULL,
+    balance numeric(14,2) DEFAULT 0 NOT NULL,
     role text DEFAULT 'user'::text NOT NULL,
     CONSTRAINT app_user_balance_check CHECK ((balance >= (0)::numeric))
 );
@@ -285,7 +290,7 @@ ALTER SEQUENCE public.commodity_id_seq OWNED BY public.commodity.id;
 CREATE TABLE public.holding (
     user_id integer NOT NULL,
     commodity_id integer NOT NULL,
-    quantity numeric DEFAULT 0 NOT NULL,
+    quantity numeric(14,2) DEFAULT 0 NOT NULL,
     CONSTRAINT holding_quantity_check CHECK ((quantity >= (0)::numeric))
 );
 
@@ -327,8 +332,8 @@ CREATE TABLE public.trade_order (
     commodity_id integer NOT NULL,
     user_id integer NOT NULL,
     side text NOT NULL,
-    quantity numeric NOT NULL,
-    price numeric NOT NULL,
+    quantity numeric(14,2) NOT NULL,
+    price numeric(14,2) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT trade_order_price_check CHECK ((price > (0)::numeric)),
     CONSTRAINT trade_order_quantity_check CHECK ((quantity > (0)::numeric))
@@ -366,12 +371,12 @@ ALTER SEQUENCE public.trade_order_id_seq OWNED BY public.trade_order.id;
 CREATE TABLE public.transaction_table (
     id integer NOT NULL,
     user_id integer NOT NULL,
-    change numeric NOT NULL,
+    change numeric(14,2) NOT NULL,
     type text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     commodity_id integer,
-    quantity numeric,
-    price numeric
+    quantity numeric(14,2),
+    price numeric(14,2)
 );
 
 
@@ -476,9 +481,9 @@ ALTER TABLE ONLY public.transaction_table ALTER COLUMN id SET DEFAULT nextval('p
 --
 
 COPY public.app_user (id, username, password_hash, balance, role) FROM stdin;
-1	alice	$2a$06$flb21pyOJObocin6wtdozO.OiMSvDl6srtBqeQCVQ2hJ5MMtwOKHu	100000	user
-2	bob	$2a$06$vAdXNHc9fri8.33L7nqtGuXpmS44g.s/VqNmTU7LvVNKXdl96LUou	50000	user
-3	admin	$2a$06$RMAHca8rJEmUvuCqL60h3.8wSVMKXnxPFOSBkKhg9Dwd54d51725.	0	admin
+1	alice	$2a$06$fB8R9JRuW1f5DqVr5qdrnOH40Fll9oyNrgQXf8ojKmZHsmQRS911a	100000.00	user
+2	bob	$2a$06$5VzfPUxKGz/OVomIMZHIVOwEhhYFnBVTbLsiR/KmrNxfV9uYjgaVS	50000.00	user
+3	admin	$2a$06$XaGHBfx11XolAXSi1KkW5.FwcP9HZAKDyK29y0kTMSdIIeMKN4MzW	0.00	admin
 \.
 
 
@@ -498,12 +503,12 @@ COPY public.commodity (id, symbol, name, unit) FROM stdin;
 --
 
 COPY public.holding (user_id, commodity_id, quantity) FROM stdin;
-1	1	1000
-1	2	1000
-1	3	1000
-2	1	1000
-2	2	1000
-2	3	1000
+1	1	1000.00
+1	2	1000.00
+1	3	1000.00
+2	1	1000.00
+2	2	1000.00
+2	3	1000.00
 \.
 
 
@@ -530,24 +535,24 @@ COPY public.session (id, user_id, created_at, expires_at) FROM stdin;
 --
 
 COPY public.trade_order (id, commodity_id, user_id, side, quantity, price, created_at) FROM stdin;
-1	1	1	buy	10	10	2026-06-24 08:35:16.835164+00
-2	1	1	buy	10	11	2026-06-24 08:35:16.835164+00
-3	1	1	buy	10	12	2026-06-24 08:35:16.835164+00
-4	1	2	sell	10	14	2026-06-24 08:35:16.835164+00
-5	1	2	sell	10	15	2026-06-24 08:35:16.835164+00
-6	1	2	sell	10	16	2026-06-24 08:35:16.835164+00
-7	2	1	buy	10	10	2026-06-24 08:35:16.835164+00
-8	2	1	buy	10	11	2026-06-24 08:35:16.835164+00
-9	2	1	buy	10	12	2026-06-24 08:35:16.835164+00
-10	2	2	sell	10	14	2026-06-24 08:35:16.835164+00
-11	2	2	sell	10	15	2026-06-24 08:35:16.835164+00
-12	2	2	sell	10	16	2026-06-24 08:35:16.835164+00
-13	3	1	buy	10	10	2026-06-24 08:35:16.835164+00
-14	3	1	buy	10	11	2026-06-24 08:35:16.835164+00
-15	3	1	buy	10	12	2026-06-24 08:35:16.835164+00
-16	3	2	sell	10	14	2026-06-24 08:35:16.835164+00
-17	3	2	sell	10	15	2026-06-24 08:35:16.835164+00
-18	3	2	sell	10	16	2026-06-24 08:35:16.835164+00
+1	1	1	buy	10.00	10.00	2026-06-24 09:00:49.985649+00
+2	1	1	buy	10.00	11.00	2026-06-24 09:00:49.985649+00
+3	1	1	buy	10.00	12.00	2026-06-24 09:00:49.985649+00
+4	1	2	sell	10.00	14.00	2026-06-24 09:00:49.985649+00
+5	1	2	sell	10.00	15.00	2026-06-24 09:00:49.985649+00
+6	1	2	sell	10.00	16.00	2026-06-24 09:00:49.985649+00
+7	2	1	buy	10.00	10.00	2026-06-24 09:00:49.985649+00
+8	2	1	buy	10.00	11.00	2026-06-24 09:00:49.985649+00
+9	2	1	buy	10.00	12.00	2026-06-24 09:00:49.985649+00
+10	2	2	sell	10.00	14.00	2026-06-24 09:00:49.985649+00
+11	2	2	sell	10.00	15.00	2026-06-24 09:00:49.985649+00
+12	2	2	sell	10.00	16.00	2026-06-24 09:00:49.985649+00
+13	3	1	buy	10.00	10.00	2026-06-24 09:00:49.985649+00
+14	3	1	buy	10.00	11.00	2026-06-24 09:00:49.985649+00
+15	3	1	buy	10.00	12.00	2026-06-24 09:00:49.985649+00
+16	3	2	sell	10.00	14.00	2026-06-24 09:00:49.985649+00
+17	3	2	sell	10.00	15.00	2026-06-24 09:00:49.985649+00
+18	3	2	sell	10.00	16.00	2026-06-24 09:00:49.985649+00
 \.
 
 
@@ -556,12 +561,12 @@ COPY public.trade_order (id, commodity_id, user_id, side, quantity, price, creat
 --
 
 COPY public.transaction_table (id, user_id, change, type, created_at, commodity_id, quantity, price) FROM stdin;
-1	1	135000	deposit	2026-06-24 08:35:16.835164+00	\N	\N	\N
-2	1	-25000	withdraw	2026-06-24 08:35:16.835164+00	\N	\N	\N
-3	2	50000	deposit	2026-06-24 08:35:16.835164+00	\N	\N	\N
-4	1	-1200	buy	2026-06-24 08:35:16.835164+00	1	100	12
-5	1	300	sell	2026-06-24 08:35:16.835164+00	1	20	15
-6	1	-9100	buy	2026-06-24 08:35:16.835164+00	1	910	10
+1	1	135000.00	deposit	2026-06-24 09:00:49.985649+00	\N	\N	\N
+2	1	-25000.00	withdraw	2026-06-24 09:00:49.985649+00	\N	\N	\N
+3	2	50000.00	deposit	2026-06-24 09:00:49.985649+00	\N	\N	\N
+4	1	-1200.00	buy	2026-06-24 09:00:49.985649+00	1	100.00	12.00
+5	1	300.00	sell	2026-06-24 09:00:49.985649+00	1	20.00	15.00
+6	1	-9100.00	buy	2026-06-24 09:00:49.985649+00	1	910.00	10.00
 \.
 
 
@@ -701,6 +706,41 @@ ALTER TABLE ONLY public.transaction_type
 
 ALTER TABLE ONLY public.user_role
     ADD CONSTRAINT user_role_pkey PRIMARY KEY (code);
+
+
+--
+-- Name: idx_holding_commodity; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_holding_commodity ON public.holding USING btree (commodity_id);
+
+
+--
+-- Name: idx_session_user; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_session_user ON public.session USING btree (user_id);
+
+
+--
+-- Name: idx_trade_order_book; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_trade_order_book ON public.trade_order USING btree (commodity_id, price);
+
+
+--
+-- Name: idx_trade_order_user; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_trade_order_user ON public.trade_order USING btree (user_id);
+
+
+--
+-- Name: idx_transaction_user; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_transaction_user ON public.transaction_table USING btree (user_id);
 
 
 --
@@ -899,5 +939,5 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.vw_order_book TO burza_app;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict u9aeI7LJdLM2VPO5e9seEU8Hcfgker0sfSO06a9RxAQQVUfIigbeanBQKtyIfYN
+\unrestrict 338CtpZOtJgLnMJPk4U0LP6cJy0P457X9iEuFwdOHfYkP5yG2i65VI0hf8gbJfg
 
