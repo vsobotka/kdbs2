@@ -12,10 +12,11 @@ services:
       - "55432:5432"
     volumes:
       - kdbs2-pgdata:/var/lib/postgresql/data
-      # On FIRST start of an empty volume, Postgres runs every *.sql here in
-      # alphabetical order: schema.sql then seed.sql. Makes the bundle
-      # self-seeding — `docker compose up` gives a teacher a ready database.
-      - ./backend/db:/docker-entrypoint-initdb.d:ro
+      # On FIRST start of an empty volume, Postgres runs the *.sql files here in
+      # filename order. Mount ONLY schema + seed (numbered) so the bundle is
+      # self-seeding; backup.sql and anything else in db/ is deliberately excluded.
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
 
 volumes:
   kdbs2-pgdata:

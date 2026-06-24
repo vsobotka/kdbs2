@@ -7,8 +7,8 @@ const pool = new pg.Pool({
   host: config.pg.host,
   port: config.pg.port,
   database: config.pg.database,
-  user: process.env.PGADMINUSER ?? 'postgres',
-  password: process.env.PGADMINPASSWORD ?? 'postgres',
+  user: config.pg.adminUser,
+  password: config.pg.adminPassword,
 });
 
 const file = process.argv[2];
