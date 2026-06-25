@@ -7,16 +7,50 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: kdbs2
     ports:
-      # Host 55432 -> container 5432. Non-standard host port avoids colliding
-      # with any other Postgres already running on the machine.
       - "55432:5432"
     volumes:
       - kdbs2-pgdata:/var/lib/postgresql/data
-      # On FIRST start of an empty volume, Postgres runs the *.sql files here in
-      # filename order. Mount ONLY schema + seed (numbered) so the bundle is
-      # self-seeding; backup.sql and anything else in db/ is deliberately excluded.
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kdbs2"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: kdbs2-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: kdbs2
+      PGUSER: burza_app
+      PGPASSWORD: burza_app_pw
+      PGADMINUSER: postgres
+      PGADMINPASSWORD: postgres
+      CORS_ORIGIN: http://localhost:5173
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build: ./frontend
+    container_name: kdbs2-frontend
+    depends_on:
+      - backend
+    environment:
+      PUBLIC_BACKEND_URL: http://localhost:5173
+      BACKEND_PROXY_TARGET: http://backend:3001
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
 volumes:
   kdbs2-pgdata:
